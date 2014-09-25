@@ -11,8 +11,7 @@ module Faraday
         :trace_id => "X-B3-TraceId",
         :parent_id => "X-B3-ParentSpanId",
         :span_id => "X-B3-SpanId",
-        :sampled => "X-B3-Sampled",
-        :flags => "X-B3-Flags"
+        :sampled => "X-B3-Sampled"
       }.freeze
 
       def initialize(app)
