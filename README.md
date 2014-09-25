@@ -2,13 +2,20 @@
 
 Faraday middleware to generate Zipkin tracing headers.
 
+For more information about Zipkin, go to
+http://twitter.github.io/zipkin
+http://github.com/twitter/zipkin
+
+This gem implements the client side described at
+http://twitter.github.io/zipkin/instrument.html
+
 Note that you should also be using the zipkin-tracer Rack middleware
 to generate trace IDs around your requests:
 https://github.com/twitter/zipkin/tree/master/zipkin-gems/zipkin-tracer
 
-Zipkin tracing headers are documented at
+Zipkin tracing headers for HTTP APIs are documented at
 https://github.com/twitter/zipkin/blob/master/doc/collector-api.md
- 
+
 ## Usage
 
 Include Faraday::Zipkin::TraceHeaders as a Faraday middleware:

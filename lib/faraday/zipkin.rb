@@ -1,8 +1,9 @@
 require 'faraday'
 require 'finagle-thrift'
 require 'finagle-thrift/trace'
+require 'uri'
 
-require "faraday/zipkin/version"
+require 'faraday/zipkin/version'
 
 module Faraday
   module Zipkin
@@ -20,10 +21,16 @@ module Faraday
 
       def call(env)
         trace_id = ::Trace.id
-        B3_HEADERS.each do |method, header|
-          env[:request_headers][header] = trace_id.send(method).to_s
+        host = URI.parse(env[:url]).host
+        ::Trace.push(trace_id.next_id) do
+          ::Trace.record(::Trace::Annotation.new(::Trace::Annotation::CLIENT_SEND, host))
+          B3_HEADERS.each do |method, header|
+            env[:request_headers][header] = ::Trace.id.send(method).to_s
+          end
+          result = @app.call(env)
+          ::Trace.record(::Trace::Annotation.new(::Trace::Annotation::CLIENT_RECV, host))
+          result
         end
-        @app.call(env)
       end
     end
   end
