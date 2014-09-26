@@ -21,7 +21,10 @@ module Faraday
 
       def call(env)
         trace_id = ::Trace.id
-        host = URI.parse(env[:url]).host
+
+        # handle either a URI object (passed by Faraday v0.8.x in testing), or something string-izable
+        host = env[:url].respond_to?(:host) ? env[:url].host : URI.parse(env[:url].to_s).host
+
         ::Trace.push(trace_id.next_id) do
           ::Trace.record(::Trace::Annotation.new(::Trace::Annotation::CLIENT_SEND, host))
           B3_HEADERS.each do |method, header|
