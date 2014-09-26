@@ -62,7 +62,7 @@ describe Faraday::Zipkin::TraceHeaders do
     HEX_REGEX = RUBY_VERSION >= "1.9.2" ? '\h' : '[0-9a-fA-F]'
 
     context 'with tracing id' do
-      let(:trace_id) { ::Trace::TraceId.new(1, 2, 3, true) }
+      let(:trace_id) { ::Trace::TraceId.new(1, 2, 3, true, ::Trace::Flags::DEBUG) }
 
       it 'sets the X-B3 request headers' do
         expect_tracing
@@ -75,6 +75,7 @@ describe Faraday::Zipkin::TraceHeaders do
         expect(result[:request_headers]['X-B3-SpanId']).not_to eq('0000000000000003')
         expect(result[:request_headers]['X-B3-SpanId']).to match(/^#{HEX_REGEX}{16}$/)
         expect(result[:request_headers]['X-B3-Sampled']).to eq('true')
+        expect(result[:request_headers]['X-B3-Flags']).to eq('1')
       end
     end
 
@@ -88,6 +89,7 @@ describe Faraday::Zipkin::TraceHeaders do
         expect(result[:request_headers]['X-B3-ParentSpanId']).to match(/^#{HEX_REGEX}{16}$/)
         expect(result[:request_headers]['X-B3-SpanId']).to match(/^#{HEX_REGEX}{16}$/)
         expect(result[:request_headers]['X-B3-Sampled']).to match(/(true|false)/)
+        expect(result[:request_headers]['X-B3-Flags']).to eq('0')
       end
     end
 
