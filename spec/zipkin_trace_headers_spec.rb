@@ -1,6 +1,8 @@
 describe Faraday::Zipkin::TraceHeaders do
-  let(:middleware) { described_class.new(lambda{|env| env}) }
+  let(:wrapped_app) { lambda{|env| env} }
+
   let(:hostname) { 'service.example.com' }
+  let(:host_ip) { 0x11223344 }
 
   def process(body, url, headers={})
     env = {
@@ -11,10 +13,20 @@ describe Faraday::Zipkin::TraceHeaders do
     middleware.call(env)
   end
 
-  # custom matcher for trace annotation
-  RSpec::Matchers.define :have_value_and_host do |v, h|
-    match { |actual| actual.value == v && actual.host == h }
+  # custom matchers for trace annotation
+  RSpec::Matchers.define :have_value do |v|
+    match { |actual| actual.value == v }
   end
+
+  RSpec::Matchers.define :have_endpoint do |ip, svc|
+    match { |actual| actual.host.kind_of?(::Trace::Endpoint) &&
+                     actual.host.ipv4 == ip &&
+                     actual.host.service_name == svc }
+  end
+
+  before(:each) {
+    allow(::Trace::Endpoint).to receive(:host_to_i32).with(hostname).and_return(host_ip)
+  }
 
   shared_examples 'can make requests' do
     context 'with tracing id' do
@@ -22,8 +34,8 @@ describe Faraday::Zipkin::TraceHeaders do
 
       it 'sets the X-B3 request headers' do
         # expect SEND then RECV
-        expect(::Trace).to receive(:record).with(have_value_and_host(::Trace::Annotation::CLIENT_SEND, hostname)).ordered
-        expect(::Trace).to receive(:record).with(have_value_and_host(::Trace::Annotation::CLIENT_RECV, hostname)).ordered
+        expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_SEND).and(have_endpoint(host_ip, service_name))).ordered
+        expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_RECV).and(have_endpoint(host_ip, service_name))).ordered
 
         result = nil
         ::Trace.push(trace_id) do
@@ -48,16 +60,33 @@ describe Faraday::Zipkin::TraceHeaders do
     end
   end
 
-  context 'request with string URL' do
-    let(:url) { "https://#{hostname}/some/path/here" }
+  context 'middleware configured (without service_name)' do
+    let(:middleware) { described_class.new(wrapped_app) }
+    let(:service_name) { 'service' }
 
-    include_examples 'can make requests'
+    context 'request with string URL' do
+      let(:url) { "https://#{hostname}/some/path/here" }
+
+      include_examples 'can make requests'
+    end
+
+    # in testing, Faraday v0.8.x passes a URI object rather than a string
+    context 'request with pre-parsed URL' do
+      let(:url) { URI.parse("https://#{hostname}/some/path/here") }
+
+      include_examples 'can make requests'
+    end
   end
 
-  # in testing, Faraday v0.8.x passes a URI object rather than a string
-  context 'request with pre-parsed URL' do
-    let(:url) { URI.parse("https://#{hostname}/some/path/here") }
+  context 'configured with service_name "foo"' do
+    let(:middleware) { described_class.new(wrapped_app, 'foo') }
+    let(:service_name) { 'foo' }
 
-    include_examples 'can make requests'
+    # in testing, Faraday v0.8.x passes a URI object rather than a string
+    context 'request with pre-parsed URL' do
+      let(:url) { URI.parse("https://#{hostname}/some/path/here") }
+
+      include_examples 'can make requests'
+    end
   end
 end
