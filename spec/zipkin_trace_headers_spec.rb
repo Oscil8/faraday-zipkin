@@ -1,11 +1,29 @@
 describe Faraday::Zipkin::TraceHeaders do
-  let(:wrapped_app) { lambda{|env| env} }
+  # allow stubbing of on_complete and response env
+  class ResponseObject
+    attr_reader :env
+
+    def initialize(env, response_env)
+      @env = env
+      @response_env = response_env
+    end
+
+    def on_complete
+      yield @response_env
+      self
+    end
+  end
+
+  let(:response_env) { { :status => 200 } }
+  let(:wrapped_app) { lambda{|env| ResponseObject.new(env, response_env)} }
 
   let(:hostname) { 'service.example.com' }
   let(:host_ip) { 0x11223344 }
+  let(:raw_url) { "https://#{hostname}/some/path/here" }
 
   def process(body, url, headers={})
     env = {
+      :method => :post,
       :url => url,
       :body => body,
       :request_headers => Faraday::Utils::Headers.new(headers),
@@ -34,12 +52,14 @@ describe Faraday::Zipkin::TraceHeaders do
 
       it 'sets the X-B3 request headers' do
         # expect SEND then RECV
+        expect(::Trace).to receive(:set_rpc_name).with('POST')
+        expect(::Trace).to receive(:record).with(instance_of(::Trace::BinaryAnnotation)).twice # http.uri, http.status
         expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_SEND).and(have_endpoint(host_ip, service_name))).ordered
         expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_RECV).and(have_endpoint(host_ip, service_name))).ordered
 
         result = nil
         ::Trace.push(trace_id) do
-          result = process('', url)
+          result = process('', url).env
         end
         expect(result[:request_headers]['X-B3-TraceId']).to eq('0000000000000001')
         expect(result[:request_headers]['X-B3-ParentSpanId']).to eq('0000000000000003')
@@ -51,7 +71,7 @@ describe Faraday::Zipkin::TraceHeaders do
 
     context 'without tracing id' do
       it 'generates a new ID, and sets the X-B3 request headers' do
-        result = process('', url)
+        result = process('', url).env
         expect(result[:request_headers]['X-B3-TraceId']).to match(/^\h{16}$/)
         expect(result[:request_headers]['X-B3-ParentSpanId']).to match(/^\h{16}$/)
         expect(result[:request_headers]['X-B3-SpanId']).to match(/^\h{16}$/)
@@ -65,14 +85,14 @@ describe Faraday::Zipkin::TraceHeaders do
     let(:service_name) { 'service' }
 
     context 'request with string URL' do
-      let(:url) { "https://#{hostname}/some/path/here" }
+      let(:url) { raw_url }
 
       include_examples 'can make requests'
     end
 
     # in testing, Faraday v0.8.x passes a URI object rather than a string
     context 'request with pre-parsed URL' do
-      let(:url) { URI.parse("https://#{hostname}/some/path/here") }
+      let(:url) { URI.parse(raw_url) }
 
       include_examples 'can make requests'
     end
@@ -84,7 +104,7 @@ describe Faraday::Zipkin::TraceHeaders do
 
     # in testing, Faraday v0.8.x passes a URI object rather than a string
     context 'request with pre-parsed URL' do
-      let(:url) { URI.parse("https://#{hostname}/some/path/here") }
+      let(:url) { URI.parse(raw_url) }
 
       include_examples 'can make requests'
     end

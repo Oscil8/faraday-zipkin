@@ -29,11 +29,17 @@ module Faraday
         endpoint = ::Trace::Endpoint.new(::Trace::Endpoint.host_to_i32(url.host), url.port, service_name)
 
         ::Trace.push(trace_id.next_id) do
+          # annotate with method (GET/POST/etc.) and uri path
+          ::Trace.set_rpc_name(env[:method].to_s.upcase)
+          ::Trace.record(::Trace::BinaryAnnotation.new("http.uri", url.path, "STRING", endpoint))
           ::Trace.record(::Trace::Annotation.new(::Trace::Annotation::CLIENT_SEND, endpoint))
           B3_HEADERS.each do |method, header|
             env[:request_headers][header] = ::Trace.id.send(method).to_s
           end
-          result = @app.call(env)
+          result = @app.call(env).on_complete do |renv|
+            # record HTTP status code on response
+            ::Trace.record(::Trace::BinaryAnnotation.new("http.status", renv[:status], "I16", endpoint))
+          end
           ::Trace.record(::Trace::Annotation.new(::Trace::Annotation::CLIENT_RECV, endpoint))
           result
         end
