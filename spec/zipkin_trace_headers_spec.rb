@@ -43,20 +43,24 @@ describe Faraday::Zipkin::TraceHeaders do
   end
 
   before(:each) {
+    ::Trace.sample_rate = 0.1 # make sure initialized
     allow(::Trace::Endpoint).to receive(:host_to_i32).with(hostname).and_return(host_ip)
   }
 
   shared_examples 'can make requests' do
+    def expect_tracing
+      # expect SEND then RECV
+      expect(::Trace).to receive(:set_rpc_name).with('POST')
+      expect(::Trace).to receive(:record).with(instance_of(::Trace::BinaryAnnotation)).twice # http.uri, http.status
+      expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_SEND).and(have_endpoint(host_ip, service_name))).ordered
+      expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_RECV).and(have_endpoint(host_ip, service_name))).ordered
+    end
+
     context 'with tracing id' do
       let(:trace_id) { ::Trace::TraceId.new(1, 2, 3, true) }
 
       it 'sets the X-B3 request headers' do
-        # expect SEND then RECV
-        expect(::Trace).to receive(:set_rpc_name).with('POST')
-        expect(::Trace).to receive(:record).with(instance_of(::Trace::BinaryAnnotation)).twice # http.uri, http.status
-        expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_SEND).and(have_endpoint(host_ip, service_name))).ordered
-        expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_RECV).and(have_endpoint(host_ip, service_name))).ordered
-
+        expect_tracing
         result = nil
         ::Trace.push(trace_id) do
           result = process('', url).env
@@ -70,7 +74,10 @@ describe Faraday::Zipkin::TraceHeaders do
     end
 
     context 'without tracing id' do
+      after(:each) { ::Trace.pop }
+
       it 'generates a new ID, and sets the X-B3 request headers' do
+        expect_tracing
         result = process('', url).env
         expect(result[:request_headers]['X-B3-TraceId']).to match(/^\h{16}$/)
         expect(result[:request_headers]['X-B3-ParentSpanId']).to match(/^\h{16}$/)
