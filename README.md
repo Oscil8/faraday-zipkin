@@ -1,5 +1,7 @@
 # Faraday::Zipkin
 
+![TravisCI Build status](https://travis-ci.org/Oscil8/faraday-zipkin.svg?branch=master)
+
 Faraday middleware to generate Zipkin tracing headers.
 
 For more information about Zipkin, go to

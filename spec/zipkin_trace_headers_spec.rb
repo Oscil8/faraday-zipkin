@@ -56,6 +56,9 @@ describe Faraday::Zipkin::TraceHeaders do
       expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_RECV).and(have_endpoint(host_ip, service_name))).ordered
     end
 
+    # Ruby 1.8 didn't support \h
+    HEX_REGEX = RUBY_VERSION >= "1.9.2" ? '\h' : '[0-9a-fA-F]'
+
     context 'with tracing id' do
       let(:trace_id) { ::Trace::TraceId.new(1, 2, 3, true) }
 
@@ -68,7 +71,7 @@ describe Faraday::Zipkin::TraceHeaders do
         expect(result[:request_headers]['X-B3-TraceId']).to eq('0000000000000001')
         expect(result[:request_headers]['X-B3-ParentSpanId']).to eq('0000000000000003')
         expect(result[:request_headers]['X-B3-SpanId']).not_to eq('0000000000000003')
-        expect(result[:request_headers]['X-B3-SpanId']).to match(/^\h{16}$/)
+        expect(result[:request_headers]['X-B3-SpanId']).to match(/^#{HEX_REGEX}{16}$/)
         expect(result[:request_headers]['X-B3-Sampled']).to eq('true')
       end
     end
@@ -79,9 +82,9 @@ describe Faraday::Zipkin::TraceHeaders do
       it 'generates a new ID, and sets the X-B3 request headers' do
         expect_tracing
         result = process('', url).env
-        expect(result[:request_headers]['X-B3-TraceId']).to match(/^\h{16}$/)
-        expect(result[:request_headers]['X-B3-ParentSpanId']).to match(/^\h{16}$/)
-        expect(result[:request_headers]['X-B3-SpanId']).to match(/^\h{16}$/)
+        expect(result[:request_headers]['X-B3-TraceId']).to match(/^#{HEX_REGEX}{16}$/)
+        expect(result[:request_headers]['X-B3-ParentSpanId']).to match(/^#{HEX_REGEX}{16}$/)
+        expect(result[:request_headers]['X-B3-SpanId']).to match(/^#{HEX_REGEX}{16}$/)
         expect(result[:request_headers]['X-B3-Sampled']).to match(/(true|false)/)
       end
     end
