@@ -26,7 +26,8 @@ Include Faraday::Zipkin::TraceHeaders as a Faraday middleware:
     require 'faraday/zipkin'
     
     conn = Faraday.new(:url => 'http://localhost:9292/') do |faraday|
-      faraday.use Faraday::Zipkin::TraceHeaders [, 'service_name']
+      # 'service_name' is optional (but recommended)
+      faraday.use Faraday::Zipkin::TraceHeaders, 'service_name'
       # default Faraday stack
       faraday.request :url_encoded
       faraday.adapter Faraday.default_adapter

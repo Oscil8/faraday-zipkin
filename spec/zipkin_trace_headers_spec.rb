@@ -31,29 +31,31 @@ describe Faraday::Zipkin::TraceHeaders do
     middleware.call(env)
   end
 
-  # custom matchers for trace annotation
-  RSpec::Matchers.define :have_value do |v|
-    match { |actual| actual.value == v }
-  end
-
-  RSpec::Matchers.define :have_endpoint do |ip, svc|
-    match { |actual| actual.host.kind_of?(::Trace::Endpoint) &&
-                     actual.host.ipv4 == ip &&
-                     actual.host.service_name == svc }
-  end
-
   before(:each) {
     ::Trace.sample_rate = 0.1 # make sure initialized
     allow(::Trace::Endpoint).to receive(:host_to_i32).with(hostname).and_return(host_ip)
   }
 
   shared_examples 'can make requests' do
+    # helper to check host component of annotation
+    def expect_host(host, host_ip, service_name)
+      expect(host).to be_a_kind_of(::Trace::Endpoint)
+      expect(host.ipv4).to eq(host_ip)
+      expect(host.service_name).to eq(service_name)
+    end
+
     def expect_tracing
       # expect SEND then RECV
       expect(::Trace).to receive(:set_rpc_name).with('POST')
       expect(::Trace).to receive(:record).with(instance_of(::Trace::BinaryAnnotation)).twice # http.uri, http.status
-      expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_SEND).and(have_endpoint(host_ip, service_name))).ordered
-      expect(::Trace).to receive(:record).with(have_value(::Trace::Annotation::CLIENT_RECV).and(have_endpoint(host_ip, service_name))).ordered
+      expect(::Trace).to receive(:record).with(instance_of(::Trace::Annotation)) do |ann|
+        expect(ann.value).to eq(::Trace::Annotation::CLIENT_SEND)
+        expect_host(ann.host, host_ip, service_name)
+      end.ordered
+      expect(::Trace).to receive(:record).with(instance_of(::Trace::Annotation)) do |ann|
+        expect(ann.value).to eq(::Trace::Annotation::CLIENT_RECV)
+        expect_host(ann.host, host_ip, service_name)
+      end.ordered
     end
 
     # Ruby 1.8 didn't support \h
