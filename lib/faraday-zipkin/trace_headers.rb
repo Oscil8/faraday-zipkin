@@ -22,7 +22,7 @@ module Faraday
         # handle either a URI object (passed by Faraday v0.8.x in testing), or something string-izable
         url = env[:url].respond_to?(:host) ? env[:url] : URI.parse(env[:url].to_s)
         service_name = @service_name || url.host.split('.').first # default to url-derived service name
-        endpoint = ::Trace::Endpoint.new(::Trace::Endpoint.host_to_i32(url.host), url.port, service_name)
+        endpoint = ::Trace::Endpoint.new(host_ip_for(url.host), url.port, service_name)
 
         trace_id = ::Trace.id
         ::Trace.push(trace_id.next_id) do
@@ -42,6 +42,15 @@ module Faraday
           result
         end
       end
+
+      # get host IP for specified hostname, catching exceptions
+      def host_ip_for(hostname)
+        ::Trace::Endpoint.host_to_i32(hostname)
+      rescue
+        # default to 0.0.0.0 if lookup fails
+        0x00000000
+      end
+      private :host_ip_for
     end
   end
 end

@@ -90,6 +90,19 @@ describe Faraday::Zipkin::TraceHeaders do
         expect(result[:request_headers]['X-B3-Sampled']).to match(/(true|false)/)
       end
     end
+
+    context 'when looking up hostname raises' do
+      let(:host_ip) { 0x00000000 } # expect stubbed 'null' IP
+
+      before(:each) {
+        allow(::Trace::Endpoint).to receive(:host_to_i32).with(hostname).and_raise(SocketError)
+      }
+
+      it 'traces with stubbed endpoint address' do
+        expect_tracing
+        process('', url)
+      end
+    end
   end
 
   context 'middleware configured (without service_name)' do
