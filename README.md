@@ -1,6 +1,6 @@
 # Faraday::Zipkin
 
-![TravisCI Build status](https://travis-ci.org/Oscil8/faraday-zipkin.svg?branch=master)
+[![Build Status](https://travis-ci.org/Oscil8/faraday-zipkin.svg?branch=master)](https://travis-ci.org/Oscil8/faraday-zipkin)
 
 Faraday middleware to generate Zipkin tracing headers.
 
@@ -23,7 +23,7 @@ https://github.com/twitter/zipkin/blob/master/doc/collector-api.md
 Include Faraday::Zipkin::TraceHeaders as a Faraday middleware:
 
     require 'faraday'
-    require 'faraday/zipkin'
+    require 'faraday-zipkin'
     
     conn = Faraday.new(:url => 'http://localhost:9292/') do |faraday|
       # 'service_name' is optional (but recommended)

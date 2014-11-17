@@ -1,0 +1,10 @@
+
+Supporting finagle-thrift v1.2.0
+v0.1.0 initial implementation of client trace code
+v0.2.0 added the optional service_name parameter, annotate correctly
+ v0.2.1 add annotation for http uri, method, response code
+ v0.2.2 fix serialization of response code
+ v0.2.3 minor gem cleanup, travis support; fix raise on DNS
+
+TODO:
+v0.3.0 - Upgrade to finagle-thrift v1.3.0
