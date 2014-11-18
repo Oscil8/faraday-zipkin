@@ -10,7 +10,8 @@ module Faraday
         :trace_id => "X-B3-TraceId",
         :parent_id => "X-B3-ParentSpanId",
         :span_id => "X-B3-SpanId",
-        :sampled => "X-B3-Sampled"
+        :sampled => "X-B3-Sampled",
+        :flags => "X-B3-Flags"
       }.freeze
 
       def initialize(app, service_name=nil)
@@ -24,8 +25,9 @@ module Faraday
         service_name = @service_name || url.host.split('.').first # default to url-derived service name
         endpoint = ::Trace::Endpoint.new(host_ip_for(url.host), url.port, service_name)
 
-        trace_id = ::Trace.id
-        ::Trace.push(trace_id.next_id) do
+        ::Trace.unwind do
+          trace_id = ::Trace.id
+          ::Trace.push(trace_id.next_id)
           B3_HEADERS.each do |method, header|
             env[:request_headers][header] = ::Trace.id.send(method).to_s
           end
